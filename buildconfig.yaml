@@ -1,0 +1,51 @@
+apiVersion: build.openshift.io/v1
+kind: BuildConfig
+metadata:
+  name: uidexample
+spec:
+  failedBuildsHistoryLimit: 3
+  output:
+    to:
+      kind: ImageStreamTag
+      name: uidexample:latest
+  source:
+    type: Dockerfile
+    dockerfile: |
+      FROM public.ecr.aws/ubuntu/ubuntu:22.04_stable
+
+      ENV DEBIAN_FRONTEND=noninteractive
+      RUN apt-get update && apt-get install -y wget vim software-properties-common
+      RUN add-apt-repository -y ppa:deadsnakes/ppa && apt-get update
+      RUN apt-get install -y python3.12 python3.12-venv python3.12-distutils
+      ENV DEBIAN_FRONTEND=dialog
+
+      RUN ln -s /usr/bin/python3.12 /usr/bin/python
+      ARG RUNNER_CWD=/home/positron/job-controller
+      ARG JOB_CWD=/home/positron/job-execution
+      ENV RUNNER_CWD=$RUNNER_CWD
+      ENV JOB_CWD=$JOB_CWD
+
+      ARG POSITRON_GID=1001970001
+      ARG POSITRON_UID=1001970001
+      ARG JOB_RUNNER_UID=1001970002
+
+      RUN groupadd -g $POSITRON_GID positron \
+        && useradd -m --no-log-init --non-unique -u $POSITRON_UID -g positron -s /bin/bash positron
+      RUN useradd -p "" -m --no-log-init -u $JOB_RUNNER_UID -g positron -s /bin/bash job_user
+
+      RUN mkdir -p $RUNNER_CWD \
+        && chown -R positron:positron $RUNNER_CWD \
+        && chmod -R 700 $RUNNER_CWD \
+        && mkdir -p $JOB_CWD \
+        && chown -R job_user:positron $JOB_CWD \
+        && chmod -R 2770 $JOB_CWD
+
+      USER positron
+      WORKDIR $RUNNER_CWD
+      ENV JOB_USER=job_user
+      CMD [ "sleep", "inf" ]
+  strategy:
+    type: Docker
+  successfulBuildsHistoryLimit: 3
+  triggers:
+  - type: ConfigChange

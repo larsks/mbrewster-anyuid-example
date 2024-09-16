@@ -1,0 +1,31 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: uidexample
+  annotations:
+    image.openshift.io/triggers: |
+      [
+       {
+         "from": {
+           "kind": "ImageStreamTag", 
+           "name": "uidexample:latest",
+         },
+         "fieldPath": "spec.template.spec.containers[?(@.name==\"uidexample\")].image", 
+         "paused": false
+       }
+      ]
+spec:
+  template:
+    metadata:
+      annotations:
+        alpha.image.policy.openshift.io/resolve-names: '*'
+    spec:
+      serviceAccountName: uidexample
+      containers:
+        - name: uidexample
+          image: uidexample:latest
+          ports:
+            - name: http
+              containerPort: 8080
+          securityContext:
+            runAsUser: 50001
